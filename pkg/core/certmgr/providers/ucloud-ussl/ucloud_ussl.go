@@ -12,6 +12,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -154,7 +155,7 @@ func (c *Certmgr) tryGetResultIfCertExists(ctx context.Context, certPEM string) 
 
 		for _, certItem := range getCertificateListResp.CertificateList {
 			// 对比证书备用名称
-			if len(certX509.DNSNames) == 0 || certItem.Domains != strings.Join(certX509.DNSNames, ",") {
+			if !equalDomains(certItem.Domains, certDNSNames) {
 				continue
 			}
 
@@ -326,4 +327,22 @@ func downloadCertificateFromUCloud(url string) ([]byte, error) {
 	}
 
 	return pemData, nil
+}
+
+func equalDomains(domains string, sortedDNSNames []string) bool {
+	if domains == "" || len(sortedDNSNames) == 0 {
+		return false
+	}
+
+	itemDomains := strings.Split(domains, ",")
+	if len(itemDomains) != len(sortedDNSNames) {
+		return false
+	}
+
+	for i := range itemDomains {
+		itemDomains[i] = strings.ToLower(strings.TrimSpace(itemDomains[i]))
+	}
+
+	slices.Sort(itemDomains)
+	return slices.Equal(itemDomains, sortedDNSNames)
 }
